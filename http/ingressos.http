@@ -1,0 +1,26 @@
+@base = http://localhost:3000
+
+### Login como Ana
+# @name ana
+POST {{base}}/login
+content-type: application/json
+
+{ "email": "ana@exemplo.com", "senha": "senha123" }
+
+### Meus ingressos
+GET {{base}}/ingressos
+authorization: Bearer {{ana.response.body.token}}
+
+### Um ingresso meu
+GET {{base}}/ingressos/1
+authorization: Bearer {{ana.response.body.token}}
+
+### Comprar
+POST {{base}}/compras
+authorization: Bearer {{ana.response.body.token}}
+content-type: application/json
+
+{ "show_id": 2 }
+
+### Shows (público)
+GET {{base}}/shows?busca=Aurora
