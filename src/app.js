@@ -10,7 +10,9 @@ app.use(express.json());
 
 app.post("/login", (req, res) => {
   const { email, senha } = req.body ?? {};
-  const usuario = db.prepare("SELECT * FROM usuarios WHERE email = ?").get(String(email));
+  const usuario = db
+    .prepare("SELECT * FROM usuarios WHERE email = ?")
+    .get(String(email));
   if (!usuario || !senhaConfere(String(senha), usuario.senha_hash))
     return res.status(401).json({ erro: "e-mail ou senha incorretos" });
 
@@ -33,7 +35,9 @@ app.get("/shows", (req, res) => {
 app.use(exigeToken);
 
 app.get("/me", (req, res) => {
-  res.json(db.prepare("SELECT * FROM usuarios WHERE id = ?").get(req.usuario.id));
+  res.json(
+    db.prepare("SELECT * FROM usuarios WHERE id = ?").get(req.usuario.id),
+  );
 });
 
 app.get("/ingressos", (req, res) => {
@@ -58,20 +62,26 @@ app.get("/ingressos/:id", (req, res) => {
         WHERE i.id = ?`,
     )
     .get(req.params.id);
-  if (!ingresso) return res.status(404).json({ erro: "ingresso não encontrado" });
+  if (!ingresso)
+    return res.status(404).json({ erro: "ingresso não encontrado" });
 
   res.json(ingresso);
 });
 
 app.delete("/ingressos/:id", (req, res) => {
-  const ingresso = db.prepare("SELECT * FROM ingressos WHERE id = ?").get(req.params.id);
-  if (!ingresso) return res.status(404).json({ erro: "ingresso não encontrado" });
+  const ingresso = db
+    .prepare("SELECT * FROM ingressos WHERE id = ?")
+    .get(req.params.id);
+  if (!ingresso)
+    return res.status(404).json({ erro: "ingresso não encontrado" });
   if (ingresso.usuario_id !== req.usuario.id)
     return res.status(403).json({ erro: "este ingresso não é seu" });
 
   db.exec("BEGIN");
   db.prepare("DELETE FROM ingressos WHERE id = ?").run(ingresso.id);
-  db.prepare("UPDATE shows SET lugares = lugares + 1 WHERE id = ?").run(ingresso.show_id);
+  db.prepare("UPDATE shows SET lugares = lugares + 1 WHERE id = ?").run(
+    ingresso.show_id,
+  );
   db.exec("COMMIT");
   res.status(204).end();
 });
@@ -92,12 +102,19 @@ app.post("/compras", (req, res) => {
     codigo_qr: `QR-${randomUUID().slice(0, 8).toUpperCase()}`,
   };
   db.exec("BEGIN");
-  db.prepare("UPDATE shows SET lugares = lugares - 1 WHERE id = ?").run(show_id);
+  db.prepare("UPDATE shows SET lugares = lugares - 1 WHERE id = ?").run(
+    show_id,
+  );
   const { lastInsertRowid } = db
     .prepare(
       "INSERT INTO ingressos (usuario_id, show_id, preco_pago, codigo_qr) VALUES (?, ?, ?, ?)",
     )
-    .run(ingresso.usuario_id, ingresso.show_id, ingresso.preco_pago, ingresso.codigo_qr);
+    .run(
+      ingresso.usuario_id,
+      ingresso.show_id,
+      ingresso.preco_pago,
+      ingresso.codigo_qr,
+    );
   db.exec("COMMIT");
 
   res.status(201).json({ id: Number(lastInsertRowid), ...ingresso });
@@ -108,12 +125,25 @@ app.post("/compras", (req, res) => {
 app.post("/admin/shows", exigeAdmin, (req, res) => {
   const { artista, local, data, preco, lugares } = req.body ?? {};
   if (!artista || !local || !data || !(preco > 0) || !(lugares >= 0))
-    return res.status(400).json({ erro: "artista, local, data, preco e lugares são obrigatórios" });
+    return res
+      .status(400)
+      .json({ erro: "artista, local, data, preco e lugares são obrigatórios" });
 
   const { lastInsertRowid } = db
-    .prepare("INSERT INTO shows (artista, local, data, preco, lugares) VALUES (?, ?, ?, ?, ?)")
+    .prepare(
+      "INSERT INTO shows (artista, local, data, preco, lugares) VALUES (?, ?, ?, ?, ?)",
+    )
     .run(artista, local, data, preco, lugares);
-  res.status(201).json({ id: Number(lastInsertRowid), artista, local, data, preco, lugares });
+  res
+    .status(201)
+    .json({
+      id: Number(lastInsertRowid),
+      artista,
+      local,
+      data,
+      preco,
+      lugares,
+    });
 });
 
 app.get("/admin/vendas", (req, res) => {

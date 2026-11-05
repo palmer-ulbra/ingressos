@@ -1,4 +1,15 @@
+# Aula 15 — Segurança aplicada aos testes
+# Os passos da aula, na ordem. Rode `npm run seed` antes de começar:
+# o Passo 6 muda o banco (cria o ingresso 4).
+
 @base = http://localhost:3000
+
+# Assinado com outro segredo ("chute"), dizendo sub 3 / perfil ADMIN
+@falso = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwZXJmaWwiOiJBRE1JTiIsImlhdCI6MTc5MzgzNDg0Niwic3ViIjoiMyJ9.w5AK_kf3lqyv2zz1PEYFYClxpdqCsBe7snqQPZ11_WE
+# Segredo certo, mas já nasceu vencido (exp 10 s antes do iat)
+@vencido = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwZXJmaWwiOiJDTElFTlRFIiwiaWF0IjoxNzkzODM0ODQ2LCJleHAiOjE3OTM4MzQ4MzYsInN1YiI6IjEifQ.B2Grti2zdTgZBo4gSRS7PEDzwMBLi1rGWNkirx-dXY4
+
+######## Passo 1 — o caminho feliz
 
 ### Login como Ana
 # @name ana
@@ -7,20 +18,81 @@ content-type: application/json
 
 { "email": "ana@exemplo.com", "senha": "senha123" }
 
-### Meus ingressos
+### Meus ingressos → 200, ingressos 1 e 3
 GET {{base}}/ingressos
 authorization: Bearer {{ana.response.body.token}}
 
-### Um ingresso meu
+### Um ingresso meu → 200
 GET {{base}}/ingressos/1
 authorization: Bearer {{ana.response.body.token}}
 
-### Comprar
+######## Passo 2 — quem é você? (todas → 401)
+
+### Sem token
+GET {{base}}/ingressos
+
+### Token falso, se dizendo ADMIN
+GET {{base}}/admin/vendas
+authorization: Bearer {{falso}}
+
+### Token vencido
+GET {{base}}/ingressos
+authorization: Bearer {{vencido}}
+
+######## Passo 3 — o que você pode fazer?
+
+### Ana lê o ingresso do Bruno → 200 (BOLA! deveria ser 403)
+GET {{base}}/ingressos/2
+authorization: Bearer {{ana.response.body.token}}
+
+### Ana cancela o ingresso do Bruno → 403 (aqui está certo)
+DELETE {{base}}/ingressos/2
+authorization: Bearer {{ana.response.body.token}}
+
+######## Passo 5 — a API fala demais
+
+### Meus dados → vem senha_hash e cpf
+GET {{base}}/me
+authorization: Bearer {{ana.response.body.token}}
+
+######## Passo 6 — o cliente manda, o servidor obedece
+
+### Compra mandando o preço → preco_pago: 1
 POST {{base}}/compras
 authorization: Bearer {{ana.response.body.token}}
 content-type: application/json
 
-{ "show_id": 2 }
+{ "show_id": 1, "preco": 1 }
+
 
 ### Shows (público)
 GET {{base}}/shows?busca=Aurora
+
+### Um apóstrofo na busca → 500
+GET {{base}}/shows?busca='
+
+### UNION na busca → e-mail, hash e CPF de todos, sem login
+# busca=' UNION SELECT id, nome, email, senha_hash, cpf, perfil FROM usuarios --
+GET {{base}}/shows?busca=' UNION SELECT * FROM usuarios --
+
+######## Admin
+
+### Login como Carla (ADMIN)
+# @name admin
+POST {{base}}/login
+content-type: application/json
+
+{ "email": "admin@exemplo.com", "senha": "senha123" }
+
+### Cria um show → 201
+POST {{base}}/admin/shows
+authorization: Bearer {{admin.response.body.token}}
+content-type: application/json
+
+{ "artista": "Duo Minuano", "local": "Opinião", "data": "2026-12-26", "preco": 9000, "lugares": 80 }
+
+
+### Todas as vendas → 200
+GET {{base}}/admin/vendas
+authorization: Bearer {{admin.response.body.token}}
+
